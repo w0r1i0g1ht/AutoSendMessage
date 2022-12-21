@@ -1,7 +1,6 @@
-#!/usr/bin/python
 # -*- coding:UTF-8 -*-
 import datetime
-import os
+import re
 import time
 import pyautogui
 import psutil
@@ -9,10 +8,14 @@ import win32clipboard as clip
 import win32con
 import win32gui
 import win32api
+# 不导入pyautogui可能导致鼠标设置定位出错
 
 
-# 判断TIM是否登录，没登录则登录
 def TIM_login():
+    """
+    判断TIM是否登录，没登录则登录
+    :return: 返回一个是否登录bool值
+    """
     pl = psutil.pids()
     flag = False
     for pid in pl:
@@ -22,37 +25,78 @@ def TIM_login():
 
 
 def message_get():
-    with open('./message.txt',encoding='UTF-8') as f1:
+    """
+    获得message.txt里的内容
+    :return: 返回message.txt里的内容
+    """
+    with open('./message.txt', encoding='UTF-8') as f1:
         message = f1.readlines()
         for msg in message:
             return msg
 
 
 def people_get():
-    with open('./people.txt',encoding='UTF-8') as f2:
+    """
+    获得people.txt里的内容
+    :return: 返回people.txt的目标的数组
+    """
+    with open('./people.txt', encoding='UTF-8') as f2:
         people = f2.readlines()
         return people
 
 
 def copy(text):
+    """
+    将消息传入剪贴板
+    :param text: 消息的内容
+    :return: 无
+    """
     clip.OpenClipboard()
     clip.EmptyClipboard()
-    clip.SetClipboardData(win32con.CF_UNICODETEXT,text)
+    clip.SetClipboardData(win32con.CF_UNICODETEXT, text)
     clip.CloseClipboard()
 
 
-def TIM_send(title,p,num=1):
+def find_window(title):
+    """
+    通过正则表达式对窗口标题进行模糊匹配
+    :param title: 需要模糊匹配的窗口标题
+    :return: 返回匹配到的窗口句柄
+    """
+    # 正则表达式
+    pattern = f".*{title}.*"
+    windows = []
+
+    # 回调函数
+    def callback(hwnd, windows):
+        # 根据窗口句柄获取窗口名字
+        name = win32gui.GetWindowText(hwnd)
+        if re.match(pattern, name):
+            windows.append(hwnd)
+        return True
+
+    win32gui.EnumWindows(callback, windows)
+    return windows[0]
+
+
+def TIM_send(title, p, num=1):
+    """
+    发送消息
+    :param title: 需要模糊匹配的窗口标题
+    :param p: 需要发送消息的目标
+    :param num: 发送次数
+    :return: 无
+    """
     try:
         # 获取窗口句柄
-        handle = win32gui.FindWindow(None, title.strip('\n'))  # 通过窗口标题获取窗口句柄
-        # print("窗口句柄是：{}".format(handle))
+        handle = find_window(title)
         # 打开窗口
         win32gui.SetForegroundWindow(handle)
         # 窗口最大化
         win32gui.ShowWindow(handle, win32con.SW_MAXIMIZE)
         time.sleep(1.5)
         # 鼠标位置设定
-        win32api.SetCursorPos((130,60))
+        win32api.SetCursorPos((130, 60))
         # 点击一次鼠标
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
         win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
@@ -73,7 +117,7 @@ def TIM_send(title,p,num=1):
         copy(msg)
         for i in range(num):
             # 鼠标位置设定
-            win32api.SetCursorPos((1000,940))
+            win32api.SetCursorPos((1000, 940))
             # 点击一次鼠标
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, 0, 0)
             win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, 0, 0)
@@ -101,16 +145,17 @@ def main():
             p = p.strip('\n')
             print("[*]当前发送目标", p)
             copy(p)
-            TIM_send(title, p, num=1)
+            TIM_send(title, p, num=2)
             title = p
         # 最小化窗口
-        handle = win32gui.FindWindow(None, p.strip('\n'))
+        handle = find_window(p)
         win32gui.SetForegroundWindow(handle)
         win32gui.ShowWindow(handle, win32con.SW_MINIMIZE)
         # 提示完成
         win32api.MessageBox(0, "脚本结束", "提示", win32con.MB_OK)
     else:
         print("[!]未检测到TIM.exe，请重试")
+
     pass
 
 
